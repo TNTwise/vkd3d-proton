@@ -630,6 +630,7 @@ static HRESULT STDMETHODCALLTYPE dxgi_vk_swap_chain_Present(IDXGIVkSwapChain *if
 
     /* Need to process this task in queue thread to deal with wait-before-signal.
      * All interesting works happens in the callback. */
+    chain->user.blit_count += 1;
     d3d12_command_queue_enqueue_callback(chain->queue, dxgi_vk_swap_chain_present_callback, chain);
 
     if (!(chain->desc.Flags & DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT))

@@ -11416,11 +11416,19 @@ static HRESULT STDMETHODCALLTYPE d3d12_command_queue_QueryInterface(ID3D12Comman
     }
 
 #ifdef VKD3D_BUILD_STANDALONE_D3D12
-    if (IsEqualGUID(riid, &IID_IWineDXGISwapChainFactory))
+    if (!(vkd3d_config_flags & VKD3D_CONFIG_FLAG_SWAPCHAIN_EXPERIMENTAL) && IsEqualGUID(riid, &IID_IWineDXGISwapChainFactory))
     {
         struct d3d12_command_queue *command_queue = impl_from_ID3D12CommandQueue(iface);
         IWineDXGISwapChainFactory_AddRef(&command_queue->swapchain_factory.IWineDXGISwapChainFactory_iface);
         *object = &command_queue->swapchain_factory;
+        return S_OK;
+    }
+    else if ((vkd3d_config_flags & VKD3D_CONFIG_FLAG_SWAPCHAIN_EXPERIMENTAL) && IsEqualGUID(riid, &IID_IDXGIVkSwapChainFactory))
+    {
+        struct d3d12_command_queue *command_queue = impl_from_ID3D12CommandQueue(iface);
+        IDXGIVkSwapChainFactory_AddRef(&command_queue->vk_swap_chain_factory.IDXGIVkSwapChainFactory_iface);
+        *object = &command_queue->vk_swap_chain_factory;
+        INFO("Exposing experimental swapchain interface.\n");
         return S_OK;
     }
 #endif
@@ -13147,6 +13155,8 @@ static HRESULT d3d12_command_queue_init(struct d3d12_command_queue *queue,
 
 #ifdef VKD3D_BUILD_STANDALONE_D3D12
     if (FAILED(hr = d3d12_swapchain_factory_init(queue, &queue->swapchain_factory)))
+        goto fail_swapchain_factory;
+    if (FAILED(hr = dxgi_vk_swap_chain_factory_init(queue, &queue->vk_swap_chain_factory)))
         goto fail_swapchain_factory;
 #endif
 
