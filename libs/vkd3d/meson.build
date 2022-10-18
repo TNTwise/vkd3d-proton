@@ -52,7 +52,7 @@ vkd3d_src = [
 ]
 
 if enable_d3d12
-  vkd3d_src += 'swapchain.c'
+  vkd3d_src += ['swapchain.c', 'swapchain_new.c']
 endif
 
 if enable_renderdoc
