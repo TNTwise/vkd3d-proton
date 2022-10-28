@@ -763,12 +763,9 @@ static CONST_VTBL struct IDXGIVkSwapChainVtbl dxgi_vk_swap_chain_vtbl =
     dxgi_vk_swap_chain_SetHDRMetaData,
 };
 
-static HRESULT dxgi_vk_swap_chain_create_surface(struct dxgi_vk_swap_chain *chain, HWND hwnd)
+static HRESULT dxgi_vk_swap_chain_create_surface(struct dxgi_vk_swap_chain *chain, IDXGIVkSurfaceFactory *pFactory)
 {
     const struct vkd3d_vk_device_procs *vk_procs = &chain->queue->device->vk_procs;
-#ifdef VK_KHR_win32_surface
-    VkWin32SurfaceCreateInfoKHR create_info;
-#endif
     VkPhysicalDevice vk_physical_device;
     VkInstance vk_instance;
     VkBool32 supported;
@@ -776,18 +773,7 @@ static HRESULT dxgi_vk_swap_chain_create_surface(struct dxgi_vk_swap_chain *chai
 
     vk_instance = chain->queue->device->vkd3d_instance->vk_instance;
     vk_physical_device = chain->queue->device->vk_physical_device;
-
-#ifdef VK_KHR_win32_surface
-    create_info.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
-    create_info.pNext = NULL;
-    create_info.hwnd = hwnd;
-    create_info.hinstance = GetModuleHandleA("d3d12.dll");
-    create_info.flags = 0;
-    vr = VK_CALL(vkCreateWin32SurfaceKHR(vk_instance, &create_info, NULL, &chain->vk_surface));
-#else
-    /* TODO: With dxvk-native integration, we can modify this as needed. */
-    vr = VK_ERROR_SURFACE_LOST_KHR;
-#endif
+    vr = IDXGIVkSurfaceFactory_CreateSurface(pFactory, vk_instance, vk_physical_device, &chain->vk_surface);
 
     if (vr < 0)
         return hresult_from_vk_result(vr);
@@ -1700,7 +1686,8 @@ static HRESULT dxgi_vk_swap_chain_init_waiter_thread(struct dxgi_vk_swap_chain *
     return S_OK;
 }
 
-static HRESULT dxgi_vk_swap_chain_init(struct dxgi_vk_swap_chain *chain, HWND hwnd, const DXGI_SWAP_CHAIN_DESC1 *pDesc, struct d3d12_command_queue *queue)
+static HRESULT dxgi_vk_swap_chain_init(struct dxgi_vk_swap_chain *chain, IDXGIVkSurfaceFactory *pFactory,
+        const DXGI_SWAP_CHAIN_DESC1 *pDesc, struct d3d12_command_queue *queue)
 {
     HRESULT hr;
 
@@ -1715,7 +1702,7 @@ static HRESULT dxgi_vk_swap_chain_init(struct dxgi_vk_swap_chain *chain, HWND hw
     if (FAILED(hr = dxgi_vk_swap_chain_init_sync_objects(chain)))
         goto err;
 
-    if (FAILED(hr = dxgi_vk_swap_chain_create_surface(chain, hwnd)))
+    if (FAILED(hr = dxgi_vk_swap_chain_create_surface(chain, pFactory)))
         goto err;
 
     if (FAILED(hr = dxgi_vk_swap_chain_init_waiter_thread(chain)))
@@ -1730,7 +1717,7 @@ err:
 }
 
 static HRESULT STDMETHODCALLTYPE dxgi_vk_swap_chain_factory_CreateSwapChain(IDXGIVkSwapChainFactory *iface,
-        HWND hWnd, const DXGI_SWAP_CHAIN_DESC1 *pDesc, IDXGIVkSwapChain **ppSwapchain)
+        IDXGIVkSurfaceFactory *pFactory, const DXGI_SWAP_CHAIN_DESC1 *pDesc, IDXGIVkSwapChain **ppSwapchain)
 {
     struct dxgi_vk_swap_chain_factory *factory = impl_from_IDXGIVkSwapChainFactory(iface);
     struct dxgi_vk_swap_chain *chain;
@@ -1740,7 +1727,7 @@ static HRESULT STDMETHODCALLTYPE dxgi_vk_swap_chain_factory_CreateSwapChain(IDXG
     if (!chain)
         return E_OUTOFMEMORY;
 
-    if (FAILED(hr = dxgi_vk_swap_chain_init(chain, hWnd, pDesc, factory->queue)))
+    if (FAILED(hr = dxgi_vk_swap_chain_init(chain, pFactory, pDesc, factory->queue)))
     {
         vkd3d_free(chain);
         return hr;

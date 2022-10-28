@@ -20,6 +20,7 @@
 import "vkd3d_windows.h";
 import "vkd3d_dxgibase.idl";
 import "vkd3d_dxgi1_5.idl";
+import "vkd3d_vk_includes.h";
 
 [
     object,
@@ -46,6 +47,18 @@ typedef struct DXGI_VK_HDR_METADATA
         DXGI_HDR_METADATA_HDR10 HDR10;
     };
 } DXGI_VK_HDR_METADATA;
+
+[
+    object,
+    local,
+    uuid(1e7895a1-1bc3-4f9c-a670-290a4bc9581a)
+]
+interface IDXGIVkSurfaceFactory : IUnknown {
+    VkResult CreateSurface(
+        VkInstance instance,
+        VkPhysicalDevice adapter,
+        VkSurfaceKHR *pSurface);
+};
 
 [
     object,
@@ -112,7 +125,7 @@ interface IDXGIVkSwapChain : IUnknown {
 ]
 interface IDXGIVkSwapChainFactory : IUnknown {
   HRESULT CreateSwapChain(
-          HWND                      hWnd,
+    IDXGIVkSurfaceFactory*          pSurfaceFactory,
     const DXGI_SWAP_CHAIN_DESC1*    pDesc,
           IDXGIVkSwapChain**        ppSwapChain);
 }
